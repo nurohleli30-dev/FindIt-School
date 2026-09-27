@@ -4,48 +4,55 @@ session_start();
 include "config/database.php";
 
 $pesan = "";
+$berhasil = false;
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
+    $nama = $_POST["nama"];
+    $kelas = $_POST["kelas"];
     $email = $_POST["email"];
-    $password = $_POST["password"];
+    $password = password_hash($_POST["password"], PASSWORD_DEFAULT);
 
-    $sql = "SELECT * FROM users WHERE email = ?";
-    $stmt = $conn->prepare($sql);
+    // Cek apakah email sudah terdaftar
+    $cek = $conn->prepare("SELECT id FROM users WHERE email = ?");
+    $cek->bind_param("s", $email);
+    $cek->execute();
 
-    if (!$stmt) {
-        die("Error: " . $conn->error);
-    }
+    $hasil = $cek->get_result();
 
-    $stmt->bind_param("s", $email);
-    $stmt->execute();
+    if ($hasil->num_rows > 0) {
 
-    $result = $stmt->get_result();
-
-    if ($result->num_rows == 1) {
-
-        $user = $result->fetch_assoc();
-
-        if (password_verify($password, $user["password"])) {
-
-            $_SESSION["user_id"] = $user["id"];
-            $_SESSION["nama"] = $user["nama"];
-            $_SESSION["email"] = $user["email"];
-            $_SESSION["role"] = $user["role"];
-
-            header("Location: dashboard.php");
-            exit;
-
-        } else {
-
-            $pesan = "Password salah!";
-
-        }
+        $pesan = "Email sudah terdaftar! Silakan gunakan email lain.";
 
     } else {
 
-        $pesan = "Email belum terdaftar!";
+        $sql = "INSERT INTO users (nama, kelas, email, password, role)
+                VALUES (?, ?, ?, ?, 'siswa')";
 
+        $stmt = $conn->prepare($sql);
+
+        if (!$stmt) {
+            die("Error: " . $conn->error);
+        }
+
+        $stmt->bind_param(
+            "ssss",
+            $nama,
+            $kelas,
+            $email,
+            $password
+        );
+
+        if ($stmt->execute()) {
+
+            $pesan = "Pendaftaran berhasil! Silakan login.";
+            $berhasil = true;
+
+        } else {
+
+            $pesan = "Pendaftaran gagal: " . $stmt->error;
+
+        }
     }
 }
 
@@ -61,7 +68,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <meta name="viewport"
           content="width=device-width, initial-scale=1.0">
 
-    <title>Login - FindIt School</title>
+    <title>Daftar - FindIt School</title>
 
     <style>
 
@@ -79,9 +86,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             align-items: center;
         }
 
-        .login-card {
+        .register-card {
             width: 100%;
-            max-width: 420px;
+            max-width: 450px;
             background: white;
             padding: 40px;
             border-radius: 20px;
@@ -109,7 +116,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         }
 
         .form-group {
-            margin-bottom: 20px;
+            margin-bottom: 18px;
         }
 
         label {
@@ -147,22 +154,30 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             background: #1d4ed8;
         }
 
-        .error {
-            background: #fee2e2;
-            color: #991b1b;
+        .message {
             padding: 12px;
             border-radius: 8px;
             margin-bottom: 20px;
             text-align: center;
         }
 
-        .register {
+        .success {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .error {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .login {
             text-align: center;
             margin-top: 25px;
             color: #6b7280;
         }
 
-        .register a {
+        .login a {
             color: #2563eb;
             text-decoration: none;
             font-weight: bold;
@@ -170,7 +185,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
         @media (max-width: 500px) {
 
-            .login-card {
+            .register-card {
                 margin: 20px;
                 padding: 30px 25px;
             }
@@ -183,7 +198,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
 <body>
 
-    <div class="login-card">
+    <div class="register-card">
 
         <div class="logo">
             🔎 FindIt School
@@ -193,12 +208,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             Website Barang Hilang dan Ditemukan di Sekolah
         </p>
 
-        <h2>Login</h2>
+        <h2>Daftar Akun</h2>
 
 
         <?php if ($pesan != ""): ?>
 
-            <div class="error">
+            <div class="message <?= $berhasil ? 'success' : 'error' ?>">
                 <?= htmlspecialchars($pesan) ?>
             </div>
 
@@ -206,6 +221,34 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
 
         <form method="POST">
+
+            <div class="form-group">
+
+                <label>Nama Lengkap</label>
+
+                <input
+                    type="text"
+                    name="nama"
+                    placeholder="Masukkan nama lengkap"
+                    required
+                >
+
+            </div>
+
+
+            <div class="form-group">
+
+                <label>Kelas</label>
+
+                <input
+                    type="text"
+                    name="kelas"
+                    placeholder="Contoh: 8A"
+                    required
+                >
+
+            </div>
+
 
             <div class="form-group">
 
@@ -236,18 +279,18 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
 
             <button type="submit">
-                Login
+                Daftar
             </button>
 
         </form>
 
 
-        <div class="register">
+        <div class="login">
 
-            Belum punya akun?
+            Sudah punya akun?
 
-            <a href="register.php">
-                Daftar sekarang
+            <a href="login.php">
+                Login
             </a>
 
         </div>
